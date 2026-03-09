@@ -9,7 +9,3 @@ This file documents non-obvious constraints and usage patterns.
 - Dangerous commands are blocked (rm -rf, format, dd, shutdown, etc.)
 - Output is truncated at 10,000 characters
 - `restrictToWorkspace` config can limit file access to the workspace
-
-## cron — Scheduled Reminders
-
-- Please refer to cron skill for usage.

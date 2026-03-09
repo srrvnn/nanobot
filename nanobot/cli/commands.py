@@ -264,17 +264,14 @@ def agent(
     from loguru import logger
 
     from nanobot.agent.loop import AgentLoop
-    from nanobot.config.paths import get_cron_dir
-    from nanobot.cron.service import CronService
+
 
     config = _load_runtime_config(config, workspace)
     sync_workspace_templates(config.workspace_path)
 
     provider = _make_provider(config)
 
-    # Create cron service for tool usage
-    cron_store_path = get_cron_dir() / "jobs.json"
-    cron = CronService(cron_store_path)
+
 
     if logs:
         logger.enable("nanobot")
@@ -293,7 +290,7 @@ def agent(
         brave_api_key=config.tools.web.search.api_key or None,
         web_proxy=config.tools.web.proxy or None,
         exec_config=config.tools.exec,
-        cron_service=cron,
+
         restrict_to_workspace=config.tools.restrict_to_workspace,
         mcp_servers=config.tools.mcp_servers,
     )

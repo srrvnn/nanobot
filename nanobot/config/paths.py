@@ -24,9 +24,7 @@ def get_media_dir(channel: str | None = None) -> Path:
     return ensure_dir(base / channel) if channel else base
 
 
-def get_cron_dir() -> Path:
-    """Return the cron storage directory."""
-    return get_runtime_subdir("cron")
+
 
 
 def get_logs_dir() -> Path:

@@ -24,10 +24,10 @@
 - **2026-03-07** 🚀 Azure OpenAI provider, WhatsApp media, QQ group chats, and more Telegram/Feishu polish.
 - **2026-03-06** 🪄 Lighter providers, smarter media handling, and sturdier memory and CLI compatibility.
 - **2026-03-05** ⚡️ Telegram draft streaming, MCP SSE support, and broader channel reliability fixes.
-- **2026-03-04** 🛠️ Dependency cleanup, safer file reads, and another round of test and Cron fixes.
-- **2026-03-03** 🧠 Cleaner user-message merging, safer multimodal saves, and stronger Cron guards.
-- **2026-03-02** 🛡️ Safer default access control, sturdier Cron reloads, and cleaner Matrix media handling.
-- **2026-03-01** 🌐 Web proxy support, smarter Cron reminders, and Feishu rich-text parsing improvements.
+- **2026-03-04** 🛠️ Dependency cleanup, safer file reads, and another round of test fixes.
+- **2026-03-03** 🧠 Cleaner user-message merging, safer multimodal saves, and stronger guards.
+- **2026-03-02** 🛡️ Safer default access control, sturdier reloads, and cleaner Matrix media handling.
+- **2026-03-01** 🌐 Web proxy support, smarter reminders, and Feishu rich-text parsing improvements.
 - **2026-02-28** 🚀 Released **v0.1.4.post3** — cleaner context, hardened session history, and smarter agent. Please see [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.4.post3) for details.
 - **2026-02-27** 🧠 Experimental thinking mode support, DingTalk media messages, Feishu and QQ channel fixes.
 - **2026-02-26** 🛡️ Session poisoning fix, WhatsApp dedup, Windows path guard, Mistral compatibility.
@@ -969,7 +969,7 @@ nanobot agent -c ~/.nanobot-telegram/config.json -w /tmp/nanobot-telegram-test
 |-----------|---------------|---------|
 | **Config** | `--config` path | `~/.nanobot-A/config.json` |
 | **Workspace** | `--workspace` or config | `~/.nanobot-A/workspace/` |
-| **Cron Jobs** | config directory | `~/.nanobot-A/cron/` |
+
 | **Media / runtime state** | config directory | `~/.nanobot-A/media/` |
 
 ### How It Works
@@ -1031,7 +1031,7 @@ nanobot gateway --config ~/.nanobot-telegram/config.json --workspace /tmp/nanobo
 - Each instance must use a different port if they run at the same time
 - Use a different workspace per instance if you want isolated memory, sessions, and skills
 - `--workspace` overrides the workspace defined in the config file
-- Cron jobs and runtime media/state are derived from the config directory
+- Runtime media/state is derived from the config directory
 
 ## 💻 CLI Reference
 
@@ -1140,7 +1140,7 @@ nanobot/
 ├── skills/         # 🎯 Bundled skills (github, weather, tmux...)
 ├── channels/       # 📱 Chat channel integrations
 ├── bus/            # 🚌 Message routing
-├── cron/           # ⏰ Scheduled tasks
+
 ├── heartbeat/      # 💓 Proactive wake-up
 ├── providers/      # 🤖 LLM providers (OpenRouter, etc.)
 ├── session/        # 💬 Conversation sessions
