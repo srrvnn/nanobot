@@ -487,15 +487,12 @@ class TestConsolidationDeduplicationGuard:
     async def test_consolidation_guard_prevents_duplicate_tasks(self, tmp_path: Path) -> None:
         """Concurrent messages above memory_window spawn only one consolidation task."""
         from nanobot.agent.loop import AgentLoop
-        from nanobot.bus.events import InboundMessage
-        from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse
 
-        bus = MessageBus()
         provider = MagicMock()
         provider.get_default_model.return_value = "test-model"
         loop = AgentLoop(
-            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+            provider=provider, workspace=tmp_path, model="test-model", memory_window=10
         )
 
         loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
@@ -516,9 +513,8 @@ class TestConsolidationDeduplicationGuard:
 
         loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
 
-        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
-        await loop._process_message(msg)
-        await loop._process_message(msg)
+        await loop.process_direct("hello", session_key="cli:test")
+        await loop.process_direct("hello", session_key="cli:test")
         await asyncio.sleep(0.1)
 
         assert consolidation_calls == 1, (
@@ -531,15 +527,12 @@ class TestConsolidationDeduplicationGuard:
     ) -> None:
         """/new command does not run consolidation concurrently with in-flight consolidation."""
         from nanobot.agent.loop import AgentLoop
-        from nanobot.bus.events import InboundMessage
-        from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse
 
-        bus = MessageBus()
         provider = MagicMock()
         provider.get_default_model.return_value = "test-model"
         loop = AgentLoop(
-            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+            provider=provider, workspace=tmp_path, model="test-model", memory_window=10
         )
 
         loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
@@ -565,11 +558,9 @@ class TestConsolidationDeduplicationGuard:
 
         loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
 
-        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
-        await loop._process_message(msg)
+        await loop.process_direct("hello", session_key="cli:test")
 
-        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
-        await loop._process_message(new_msg)
+        await loop.process_direct("/new", session_key="cli:test")
         await asyncio.sleep(0.1)
 
         assert consolidation_calls == 2, (
@@ -583,15 +574,12 @@ class TestConsolidationDeduplicationGuard:
     async def test_consolidation_tasks_are_referenced(self, tmp_path: Path) -> None:
         """create_task results are tracked in _consolidation_tasks while in flight."""
         from nanobot.agent.loop import AgentLoop
-        from nanobot.bus.events import InboundMessage
-        from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse
 
-        bus = MessageBus()
         provider = MagicMock()
         provider.get_default_model.return_value = "test-model"
         loop = AgentLoop(
-            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+            provider=provider, workspace=tmp_path, model="test-model", memory_window=10
         )
 
         loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
@@ -611,8 +599,7 @@ class TestConsolidationDeduplicationGuard:
 
         loop._consolidate_memory = _slow_consolidate  # type: ignore[method-assign]
 
-        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
-        await loop._process_message(msg)
+        await loop.process_direct("hello", session_key="cli:test")
 
         await started.wait()
         assert len(loop._consolidation_tasks) == 1, "Task must be referenced while in-flight"
@@ -628,15 +615,12 @@ class TestConsolidationDeduplicationGuard:
     ) -> None:
         """/new waits for in-flight consolidation and archives before clear."""
         from nanobot.agent.loop import AgentLoop
-        from nanobot.bus.events import InboundMessage
-        from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse
 
-        bus = MessageBus()
         provider = MagicMock()
         provider.get_default_model.return_value = "test-model"
         loop = AgentLoop(
-            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+            provider=provider, workspace=tmp_path, model="test-model", memory_window=10
         )
 
         loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
@@ -663,12 +647,10 @@ class TestConsolidationDeduplicationGuard:
 
         loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
 
-        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
-        await loop._process_message(msg)
+        await loop.process_direct("hello", session_key="cli:test")
         await started.wait()
 
-        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
-        pending_new = asyncio.create_task(loop._process_message(new_msg))
+        pending_new = asyncio.create_task(loop.process_direct("/new", session_key="cli:test"))
 
         await asyncio.sleep(0.02)
         assert not pending_new.done(), "/new should wait while consolidation is in-flight"
@@ -676,7 +658,7 @@ class TestConsolidationDeduplicationGuard:
         release.set()
         response = await pending_new
         assert response is not None
-        assert "new session started" in response.content.lower()
+        assert "new session started" in response.lower()
         assert archived_count > 0, "Expected /new archival to process a non-empty snapshot"
 
         session_after = loop.sessions.get_or_create("cli:test")
@@ -686,15 +668,12 @@ class TestConsolidationDeduplicationGuard:
     async def test_new_does_not_clear_session_when_archive_fails(self, tmp_path: Path) -> None:
         """/new must keep session data if archive step reports failure."""
         from nanobot.agent.loop import AgentLoop
-        from nanobot.bus.events import InboundMessage
-        from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse
 
-        bus = MessageBus()
         provider = MagicMock()
         provider.get_default_model.return_value = "test-model"
         loop = AgentLoop(
-            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+            provider=provider, workspace=tmp_path, model="test-model", memory_window=10
         )
 
         loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
@@ -714,11 +693,10 @@ class TestConsolidationDeduplicationGuard:
 
         loop._consolidate_memory = _failing_consolidate  # type: ignore[method-assign]
 
-        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
-        response = await loop._process_message(new_msg)
+        response = await loop.process_direct("/new", session_key="cli:test")
 
         assert response is not None
-        assert "failed" in response.content.lower()
+        assert "failed" in response.lower()
         session_after = loop.sessions.get_or_create("cli:test")
         assert len(session_after.messages) == before_count, (
             "Session must remain intact when /new archival fails"
@@ -730,15 +708,12 @@ class TestConsolidationDeduplicationGuard:
     ) -> None:
         """/new should archive only messages not yet consolidated by prior task."""
         from nanobot.agent.loop import AgentLoop
-        from nanobot.bus.events import InboundMessage
-        from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse
 
-        bus = MessageBus()
         provider = MagicMock()
         provider.get_default_model.return_value = "test-model"
         loop = AgentLoop(
-            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+            provider=provider, workspace=tmp_path, model="test-model", memory_window=10
         )
 
         loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
@@ -767,12 +742,10 @@ class TestConsolidationDeduplicationGuard:
 
         loop._consolidate_memory = _fake_consolidate  # type: ignore[method-assign]
 
-        msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="hello")
-        await loop._process_message(msg)
+        await loop.process_direct("hello", session_key="cli:test")
         await started.wait()
 
-        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
-        pending_new = asyncio.create_task(loop._process_message(new_msg))
+        pending_new = asyncio.create_task(loop.process_direct("/new", session_key="cli:test"))
         await asyncio.sleep(0.02)
         assert not pending_new.done()
 
@@ -780,7 +753,7 @@ class TestConsolidationDeduplicationGuard:
         response = await pending_new
 
         assert response is not None
-        assert "new session started" in response.content.lower()
+        assert "new session started" in response.lower()
         assert archived_count == 3, (
             f"Expected only unconsolidated tail to archive, got {archived_count}"
         )
@@ -789,15 +762,12 @@ class TestConsolidationDeduplicationGuard:
     async def test_new_clears_session_and_responds(self, tmp_path: Path) -> None:
         """/new clears session and returns confirmation."""
         from nanobot.agent.loop import AgentLoop
-        from nanobot.bus.events import InboundMessage
-        from nanobot.bus.queue import MessageBus
         from nanobot.providers.base import LLMResponse
 
-        bus = MessageBus()
         provider = MagicMock()
         provider.get_default_model.return_value = "test-model"
         loop = AgentLoop(
-            bus=bus, provider=provider, workspace=tmp_path, model="test-model", memory_window=10
+            provider=provider, workspace=tmp_path, model="test-model", memory_window=10
         )
         loop.provider.chat = AsyncMock(return_value=LLMResponse(content="ok", tool_calls=[]))
         loop.tools.get_definitions = MagicMock(return_value=[])
@@ -813,9 +783,8 @@ class TestConsolidationDeduplicationGuard:
 
         loop._consolidate_memory = _ok_consolidate  # type: ignore[method-assign]
 
-        new_msg = InboundMessage(channel="cli", sender_id="user", chat_id="test", content="/new")
-        response = await loop._process_message(new_msg)
+        response = await loop.process_direct("/new", session_key="cli:test")
 
         assert response is not None
-        assert "new session started" in response.content.lower()
+        assert "new session started" in response.lower()
         assert loop.sessions.get_or_create("cli:test").messages == []

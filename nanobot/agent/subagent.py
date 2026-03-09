@@ -4,7 +4,7 @@ import asyncio
 import json
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from loguru import logger
 
@@ -12,8 +12,6 @@ from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTo
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.shell import ExecTool
 from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
-from nanobot.bus.events import InboundMessage
-from nanobot.bus.queue import MessageBus
 from nanobot.config.schema import ExecToolConfig
 from nanobot.providers.base import LLMProvider
 
@@ -25,7 +23,6 @@ class SubagentManager:
         self,
         provider: LLMProvider,
         workspace: Path,
-        bus: MessageBus,
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
@@ -38,7 +35,6 @@ class SubagentManager:
         from nanobot.config.schema import ExecToolConfig
         self.provider = provider
         self.workspace = workspace
-        self.bus = bus
         self.model = model or provider.get_default_model()
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -61,10 +57,9 @@ class SubagentManager:
         """Spawn a subagent to execute a task in the background."""
         task_id = str(uuid.uuid4())[:8]
         display_label = label or task[:30] + ("..." if len(task) > 30 else "")
-        origin = {"channel": origin_channel, "chat_id": origin_chat_id}
 
         bg_task = asyncio.create_task(
-            self._run_subagent(task_id, task, display_label, origin)
+            self._run_subagent(task_id, task, display_label)
         )
         self._running_tasks[task_id] = bg_task
         if session_key:
@@ -87,13 +82,12 @@ class SubagentManager:
         task_id: str,
         task: str,
         label: str,
-        origin: dict[str, str],
     ) -> None:
-        """Execute the subagent task and announce the result."""
+        """Execute the subagent task."""
         logger.info("Subagent [{}] starting task: {}", task_id, label)
 
         try:
-            # Build subagent tools (no message tool, no spawn tool)
+            # Build subagent tools (no spawn tool to prevent recursion)
             tools = ToolRegistry()
             allowed_dir = self.workspace if self.restrict_to_workspace else None
             tools.register(ReadFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
@@ -169,45 +163,10 @@ class SubagentManager:
             if final_result is None:
                 final_result = "Task completed but no final response was generated."
 
-            logger.info("Subagent [{}] completed successfully", task_id)
-            await self._announce_result(task_id, label, task, final_result, origin, "ok")
+            logger.info("Subagent [{}] completed: {}", task_id, (final_result or "")[:120])
 
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
             logger.error("Subagent [{}] failed: {}", task_id, e)
-            await self._announce_result(task_id, label, task, error_msg, origin, "error")
-
-    async def _announce_result(
-        self,
-        task_id: str,
-        label: str,
-        task: str,
-        result: str,
-        origin: dict[str, str],
-        status: str,
-    ) -> None:
-        """Announce the subagent result to the main agent via the message bus."""
-        status_text = "completed successfully" if status == "ok" else "failed"
-
-        announce_content = f"""[Subagent '{label}' {status_text}]
-
-Task: {task}
-
-Result:
-{result}
-
-Summarize this naturally for the user. Keep it brief (1-2 sentences). Do not mention technical details like "subagent" or task IDs."""
-
-        # Inject as system message to trigger main agent
-        msg = InboundMessage(
-            channel="system",
-            sender_id="subagent",
-            chat_id=f"{origin['channel']}:{origin['chat_id']}",
-            content=announce_content,
-        )
-
-        await self.bus.publish_inbound(msg)
-        logger.debug("Subagent [{}] announced result to {}:{}", task_id, origin['channel'], origin['chat_id'])
     
     def _build_subagent_prompt(self) -> str:
         """Build a focused system prompt for the subagent."""
