@@ -202,7 +202,6 @@ class AgentLoop:
                 messages = self.context.add_assistant_message(
                     messages, response.content, tool_call_dicts,
                     reasoning_content=response.reasoning_content,
-                    thinking_blocks=response.thinking_blocks,
                 )
 
                 for tool_call in response.tool_calls:
@@ -223,7 +222,6 @@ class AgentLoop:
                     break
                 messages = self.context.add_assistant_message(
                     messages, clean, reasoning_content=response.reasoning_content,
-                    thinking_blocks=response.thinking_blocks,
                 )
                 final_content = clean
                 break

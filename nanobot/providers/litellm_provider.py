@@ -16,7 +16,7 @@ from nanobot.providers.registry import find_by_model, find_gateway
 
 # Standard chat-completion message keys.
 _ALLOWED_MSG_KEYS = frozenset({"role", "content", "tool_calls", "tool_call_id", "name", "reasoning_content"})
-_ANTHROPIC_EXTRA_KEYS = frozenset({"thinking_blocks"})
+
 _ALNUM = string.ascii_letters + string.digits
 
 def _short_tool_id() -> str:
@@ -26,18 +26,17 @@ def _short_tool_id() -> str:
 
 class LiteLLMProvider(LLMProvider):
     """
-    LLM provider using LiteLLM for multi-provider support.
+    LLM provider using LiteLLM.
     
-    Supports OpenRouter, Anthropic, OpenAI, Gemini, MiniMax, and many other providers through
-    a unified interface.  Provider-specific logic is driven by the registry
-    (see providers/registry.py) — no if-elif chains needed here.
+    Supports Gemini through a unified interface.  Provider-specific logic is
+    driven by the registry (see providers/registry.py).
     """
 
     def __init__(
         self,
         api_key: str | None = None,
         api_base: str | None = None,
-        default_model: str = "anthropic/claude-opus-4-5",
+        default_model: str = "gemini/gemini-2.5-flash-preview",
         extra_headers: dict[str, str] | None = None,
         provider_name: str | None = None,
     ):
@@ -68,7 +67,7 @@ class LiteLLMProvider(LLMProvider):
         if not spec:
             return
         if not spec.env_key:
-            # OAuth/provider-only specs (for example: openai_codex)
+            # OAuth/provider-only specs
             return
 
         # Gateway/local overrides existing env; standard provider doesn't
@@ -108,7 +107,7 @@ class LiteLLMProvider(LLMProvider):
 
     @staticmethod
     def _canonicalize_explicit_prefix(model: str, spec_name: str, canonical_prefix: str) -> str:
-        """Normalize explicit provider prefixes like `github-copilot/...`."""
+        """Normalize explicit provider prefixes."""
         if "/" not in model:
             return model
         prefix, remainder = model.split("/", 1)
@@ -162,9 +161,6 @@ class LiteLLMProvider(LLMProvider):
     @staticmethod
     def _extra_msg_keys(original_model: str, resolved_model: str) -> frozenset[str]:
         """Return provider-specific extra keys to preserve in request messages."""
-        spec = find_by_model(original_model) or find_by_model(resolved_model)
-        if (spec and spec.name == "anthropic") or "claude" in original_model.lower() or resolved_model.startswith("anthropic/"):
-            return _ANTHROPIC_EXTRA_KEYS
         return frozenset()
 
     @staticmethod
@@ -221,7 +217,7 @@ class LiteLLMProvider(LLMProvider):
         Args:
             messages: List of message dicts with 'role' and 'content'.
             tools: Optional list of tool definitions in OpenAI format.
-            model: Model identifier (e.g., 'anthropic/claude-sonnet-4-5').
+            model: Model identifier (e.g., 'gemini/gemini-2.5-flash-preview').
             max_tokens: Maximum tokens in response.
             temperature: Sampling temperature.
 
@@ -286,7 +282,7 @@ class LiteLLMProvider(LLMProvider):
         content = message.content
         finish_reason = choice.finish_reason
 
-        # Some providers (e.g. GitHub Copilot) split content and tool_calls
+        # Some providers split content and tool_calls
         # across multiple choices. Merge them so tool_calls are not lost.
         raw_tool_calls = []
         for ch in response.choices:
@@ -324,7 +320,6 @@ class LiteLLMProvider(LLMProvider):
             }
 
         reasoning_content = getattr(message, "reasoning_content", None) or None
-        thinking_blocks = getattr(message, "thinking_blocks", None) or None
 
         return LLMResponse(
             content=content,
@@ -332,7 +327,6 @@ class LiteLLMProvider(LLMProvider):
             finish_reason=finish_reason or "stop",
             usage=usage,
             reasoning_content=reasoning_content,
-            thinking_blocks=thinking_blocks,
         )
 
     def get_default_model(self) -> str:
