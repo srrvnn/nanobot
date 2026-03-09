@@ -131,8 +131,9 @@ For production use:
 
 1. **Isolate the Environment**
    ```bash
-   # Run in a container or VM
-   docker run --rm -it python:3.11
+   # Run in a virtual environment
+   python3 -m venv ~/nanobot-env
+   source ~/nanobot-env/bin/activate
    pip install nanobot-ai
    ```
 
