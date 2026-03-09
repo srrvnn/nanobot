@@ -281,7 +281,7 @@ class AgentLoop:
             return "New session started."
 
         if cmd == "/help":
-            return "🐈 nanobot commands:\n/new — Start a new conversation\n/help — Show available commands"
+            return "👋🏻 CC commands:\n/new — Start a new conversation\n/help — Show available commands"
 
         unconsolidated = len(session.messages) - session.last_consolidated
         if (unconsolidated >= self.memory_window and session.key not in self._consolidating):
