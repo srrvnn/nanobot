@@ -33,30 +33,40 @@ dev = [
 ]
 
 [project.scripts]
-nanobot = "nanobot.cli.commands:app"
+nanobot = "cli.commands:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["nanobot"]
-
-[tool.hatch.build.targets.wheel.sources]
-"nanobot" = "nanobot"
+packages = ["agent", "cli", "config", "providers", "session", "skills", "templates", "utils"]
 
 # Include non-Python files in skills and templates
 [tool.hatch.build]
 include = [
-    "nanobot/**/*.py",
-    "nanobot/templates/**/*.md",
-    "nanobot/skills/**/*.md",
-    "nanobot/skills/**/*.sh",
+    "agent/**/*.py",
+    "cli/**/*.py",
+    "config/**/*.py",
+    "providers/**/*.py",
+    "session/**/*.py",
+    "utils/**/*.py",
+    "templates/**/*.md",
+    "skills/**/*.md",
+    "skills/**/*.sh",
 ]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "nanobot/",
+    "agent/",
+    "cli/",
+    "config/",
+    "providers/",
+    "session/",
+    "skills/",
+    "templates/",
+    "utils/",
+    "main.py",
     "README.md",
     "LICENSE",
 ]

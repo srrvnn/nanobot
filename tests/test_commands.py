@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from nanobot.cli.commands import app
-from nanobot.config.schema import Config
+from cli.commands import app
+from config.schema import Config
 
 
 def _run_cli(args: list[str], monkeypatch=None, input_text: str | None = None):

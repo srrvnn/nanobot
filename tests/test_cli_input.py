@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from nanobot.cli import commands
+from cli import commands
 
 
 def test_read_interactive_input_returns_input():

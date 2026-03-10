@@ -7,7 +7,7 @@ from importlib.resources import files as pkg_files
 from pathlib import Path
 import datetime as datetime_module
 
-from nanobot.agent.context import ContextBuilder
+from agent.context import ContextBuilder
 
 
 class _FakeDatetime(real_datetime):
