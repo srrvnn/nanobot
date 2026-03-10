@@ -273,9 +273,8 @@ def cmd_agent(args: argparse.Namespace) -> None:
         _init_readline()
 
         def _handle_signal(signum, frame):
-            sig_name = signal.Signals(signum).name
             _restore_terminal()
-            console.print(f"\nReceived {sig_name}, goodbye!")
+            console.print()
             sys.exit(0)
 
         signal.signal(signal.SIGINT, _handle_signal)
