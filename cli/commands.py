@@ -117,8 +117,7 @@ def _print_agent_response(response: str, render_markdown: bool) -> None:
     """Render assistant response with consistent terminal styling."""
     content = response or ""
     body = Markdown(content) if render_markdown else Text(content)
-    console.print()
-    console.print(f"[cyan]{__logo__} CC[/cyan]")
+    console.print("[cyan]CC:[/cyan]")
     console.print(body)
     console.print()
 
@@ -131,7 +130,8 @@ def _is_exit_command(command: str) -> bool:
 def _read_interactive_input() -> str:
     """Read user input using input() with readline support."""
     try:
-        return input("\033[1;34mYou:\033[0m ")
+        console.print("[bold blue]You:[/bold blue]")
+        return input("")
     except EOFError as exc:
         raise KeyboardInterrupt from exc
 
@@ -252,6 +252,7 @@ def cmd_agent(args: argparse.Namespace) -> None:
     render_markdown = not args.no_markdown
 
     def _thinking_ctx():
+        console.print()
         return console.status("[dim]CC is thinking...[/dim]", spinner="dots")
 
     async def _cli_progress(content: str, *, tool_hint: bool = False) -> None:
@@ -268,6 +269,7 @@ def cmd_agent(args: argparse.Namespace) -> None:
         asyncio.run(run_once())
     else:
         # Interactive mode
+        console.print()
         _init_readline()
 
         def _handle_signal(signum, frame):
@@ -298,7 +300,6 @@ def cmd_agent(args: argparse.Namespace) -> None:
 
                         if _is_exit_command(command):
                             _restore_terminal()
-                            console.print("\nGoodbye!")
                             break
 
                         with _thinking_ctx():
@@ -309,11 +310,11 @@ def cmd_agent(args: argparse.Namespace) -> None:
                         _print_agent_response(response, render_markdown=render_markdown)
                     except KeyboardInterrupt:
                         _restore_terminal()
-                        console.print("\nGoodbye!")
+                        console.print()
                         break
                     except EOFError:
                         _restore_terminal()
-                        console.print("\nGoodbye!")
+                        console.print()
                         break
             finally:
                 await agent_loop.close_mcp()
