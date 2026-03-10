@@ -7,6 +7,9 @@ import string
 from typing import Any
 
 import json_repair
+
+# Disable LiteLLM's remote pricing download (forces use of built-in package dictionary)
+os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
 import litellm
 from litellm import acompletion
 import logging
