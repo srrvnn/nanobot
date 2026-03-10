@@ -9,7 +9,9 @@ from typing import Any
 import json_repair
 import litellm
 from litellm import acompletion
-from loguru import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 from nanobot.providers.registry import find_by_model, find_gateway
@@ -295,7 +297,7 @@ class LiteLLMProvider(LLMProvider):
                 content = msg.content
 
         if len(response.choices) > 1:
-            logger.debug("LiteLLM response has {} choices, merged {} tool_calls",
+            logger.debug("LiteLLM response has %s choices, merged %s tool_calls",
                          len(response.choices), len(raw_tool_calls))
 
         tool_calls = []

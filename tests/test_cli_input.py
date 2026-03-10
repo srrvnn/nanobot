@@ -1,59 +1,32 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-from prompt_toolkit.formatted_text import HTML
+from unittest.mock import patch
 
 from nanobot.cli import commands
 
 
-@pytest.fixture
-def mock_prompt_session():
-    """Mock the global prompt session."""
-    mock_session = MagicMock()
-    mock_session.prompt_async = AsyncMock()
-    with patch("nanobot.cli.commands._PROMPT_SESSION", mock_session), \
-         patch("nanobot.cli.commands.patch_stdout"):
-        yield mock_session
+def test_read_interactive_input_returns_input():
+    """Test that _read_interactive_input returns the user input."""
+    with patch("builtins.input", return_value="hello world"):
+        result = commands._read_interactive_input()
 
-
-@pytest.mark.asyncio
-async def test_read_interactive_input_async_returns_input(mock_prompt_session):
-    """Test that _read_interactive_input_async returns the user input from prompt_session."""
-    mock_prompt_session.prompt_async.return_value = "hello world"
-
-    result = await commands._read_interactive_input_async()
-    
     assert result == "hello world"
-    mock_prompt_session.prompt_async.assert_called_once()
-    args, _ = mock_prompt_session.prompt_async.call_args
-    assert isinstance(args[0], HTML)  # Verify HTML prompt is used
 
 
-@pytest.mark.asyncio
-async def test_read_interactive_input_async_handles_eof(mock_prompt_session):
+def test_read_interactive_input_handles_eof():
     """Test that EOFError converts to KeyboardInterrupt."""
-    mock_prompt_session.prompt_async.side_effect = EOFError()
+    with patch("builtins.input", side_effect=EOFError()):
+        import pytest
+        with pytest.raises(KeyboardInterrupt):
+            commands._read_interactive_input()
 
-    with pytest.raises(KeyboardInterrupt):
-        await commands._read_interactive_input_async()
 
+def test_init_readline_sets_loaded_flag():
+    """Test that _init_readline sets the loaded flag."""
+    commands._HISTORY_LOADED = False
 
-def test_init_prompt_session_creates_session():
-    """Test that _init_prompt_session initializes the global session."""
-    # Ensure global is None before test
-    commands._PROMPT_SESSION = None
-    
-    with patch("nanobot.cli.commands.PromptSession") as MockSession, \
-         patch("nanobot.cli.commands.FileHistory") as MockHistory, \
-         patch("pathlib.Path.home") as mock_home:
-        
-        mock_home.return_value = MagicMock()
-        
-        commands._init_prompt_session()
-        
-        assert commands._PROMPT_SESSION is not None
-        MockSession.assert_called_once()
-        _, kwargs = MockSession.call_args
-        assert kwargs["multiline"] is False
-        assert kwargs["enable_open_in_editor"] is False
+    with patch("nanobot.cli.commands.get_cli_history_path") as mock_path:
+        mock_path.return_value.parent.mkdir = lambda **_: None
+        with patch("readline.read_history_file", side_effect=FileNotFoundError):
+            with patch("atexit.register"):
+                commands._init_readline()
+
+    assert commands._HISTORY_LOADED is True

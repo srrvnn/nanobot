@@ -3,14 +3,46 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from typer.testing import CliRunner
 
 from nanobot.cli.commands import app
 from nanobot.config.schema import Config
 
-runner = CliRunner()
 
+def _run_cli(args: list[str], monkeypatch=None, input_text: str | None = None):
+    """Run the CLI app and capture output/exit code."""
+    import io
+    import sys
 
+    captured = io.StringIO()
+
+    if input_text is not None:
+        monkeypatch.setattr("sys.stdin", io.StringIO(input_text))
+
+    old_stdout = sys.stdout
+    sys.stdout = captured
+
+    exit_code = 0
+    try:
+        # Patch console to also write to our captured stream
+        with patch("nanobot.cli.commands.console") as mock_console:
+            # Make console.print write to captured output
+            def _print(*args, **kwargs):
+                text = " ".join(str(a) for a in args)
+                captured.write(text + "\n")
+            mock_console.print = _print
+
+            app(args)
+    except SystemExit as e:
+        exit_code = e.code if e.code is not None else 0
+    finally:
+        sys.stdout = old_stdout
+
+    class Result:
+        def __init__(self, code, output):
+            self.exit_code = code
+            self.stdout = output
+
+    return Result(exit_code, captured.getvalue())
 
 
 @pytest.fixture
@@ -43,22 +75,22 @@ def test_onboard_fresh_install(mock_paths):
     """No existing config — should create from scratch."""
     config_file, workspace_dir = mock_paths
 
-    result = runner.invoke(app, ["onboard"])
+    result = _run_cli(["onboard"])
 
     assert result.exit_code == 0
     assert "Created config" in result.stdout
     assert "Created workspace" in result.stdout
-    assert "nanobot is ready" in result.stdout
+    assert "CC is ready" in result.stdout
     assert config_file.exists()
     assert (workspace_dir / "AGENTS.md").exists()
 
 
-def test_onboard_existing_config_refresh(mock_paths):
+def test_onboard_existing_config_refresh(mock_paths, monkeypatch):
     """Config exists, user declines overwrite — should refresh (load-merge-save)."""
     config_file, workspace_dir = mock_paths
     config_file.write_text('{"existing": true}')
 
-    result = runner.invoke(app, ["onboard"], input="n\n")
+    result = _run_cli(["onboard"], monkeypatch=monkeypatch, input_text="n\n")
 
     assert result.exit_code == 0
     assert "Config already exists" in result.stdout
@@ -67,12 +99,12 @@ def test_onboard_existing_config_refresh(mock_paths):
     assert (workspace_dir / "AGENTS.md").exists()
 
 
-def test_onboard_existing_config_overwrite(mock_paths):
+def test_onboard_existing_config_overwrite(mock_paths, monkeypatch):
     """Config exists, user confirms overwrite — should reset to defaults."""
     config_file, workspace_dir = mock_paths
     config_file.write_text('{"existing": true}')
 
-    result = runner.invoke(app, ["onboard"], input="y\n")
+    result = _run_cli(["onboard"], monkeypatch=monkeypatch, input_text="y\n")
 
     assert result.exit_code == 0
     assert "Config already exists" in result.stdout
@@ -80,21 +112,18 @@ def test_onboard_existing_config_overwrite(mock_paths):
     assert workspace_dir.exists()
 
 
-def test_onboard_existing_workspace_safe_create(mock_paths):
+def test_onboard_existing_workspace_safe_create(mock_paths, monkeypatch):
     """Workspace exists — should not recreate, but still add missing templates."""
     config_file, workspace_dir = mock_paths
     workspace_dir.mkdir(parents=True)
     config_file.write_text("{}")
 
-    result = runner.invoke(app, ["onboard"], input="n\n")
+    result = _run_cli(["onboard"], monkeypatch=monkeypatch, input_text="n\n")
 
     assert result.exit_code == 0
     assert "Created workspace" not in result.stdout
     assert "Created AGENTS.md" in result.stdout
     assert (workspace_dir / "AGENTS.md").exists()
-
-
-
 
 
 @pytest.fixture
@@ -124,8 +153,9 @@ def mock_agent_runtime(tmp_path):
 
 
 def test_agent_help_shows_workspace_and_config_options():
-    result = runner.invoke(app, ["agent", "--help"])
+    result = _run_cli(["agent", "--help"])
 
+    # argparse exits with 0 on --help
     assert result.exit_code == 0
     assert "--workspace" in result.stdout
     assert "-w" in result.stdout
@@ -134,7 +164,7 @@ def test_agent_help_shows_workspace_and_config_options():
 
 
 def test_agent_uses_default_config_when_no_workspace_or_config_flags(mock_agent_runtime):
-    result = runner.invoke(app, ["agent", "-m", "hello"])
+    result = _run_cli(["agent", "-m", "hello"])
 
     assert result.exit_code == 0
     assert mock_agent_runtime["load_config"].call_args.args == (None,)
@@ -152,7 +182,7 @@ def test_agent_uses_explicit_config_path(mock_agent_runtime, tmp_path: Path):
     config_path = tmp_path / "agent-config.json"
     config_path.write_text("{}")
 
-    result = runner.invoke(app, ["agent", "-m", "hello", "-c", str(config_path)])
+    result = _run_cli(["agent", "-m", "hello", "-c", str(config_path)])
 
     assert result.exit_code == 0
     assert mock_agent_runtime["load_config"].call_args.args == (config_path.resolve(),)
@@ -187,7 +217,7 @@ def test_agent_config_sets_active_path(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("nanobot.agent.loop.AgentLoop", _FakeAgentLoop)
     monkeypatch.setattr("nanobot.cli.commands._print_agent_response", lambda *_args, **_kwargs: None)
 
-    result = runner.invoke(app, ["agent", "-m", "hello", "-c", str(config_file)])
+    result = _run_cli(["agent", "-m", "hello", "-c", str(config_file)])
 
     assert result.exit_code == 0
     assert seen["config_path"] == config_file.resolve()
@@ -196,7 +226,7 @@ def test_agent_config_sets_active_path(monkeypatch, tmp_path: Path) -> None:
 def test_agent_overrides_workspace_path(mock_agent_runtime):
     workspace_path = Path("/tmp/agent-workspace")
 
-    result = runner.invoke(app, ["agent", "-m", "hello", "-w", str(workspace_path)])
+    result = _run_cli(["agent", "-m", "hello", "-w", str(workspace_path)])
 
     assert result.exit_code == 0
     assert mock_agent_runtime["config"].agents.defaults.workspace == str(workspace_path)
@@ -209,8 +239,7 @@ def test_agent_workspace_override_wins_over_config_workspace(mock_agent_runtime,
     config_path.write_text("{}")
     workspace_path = Path("/tmp/agent-workspace")
 
-    result = runner.invoke(
-        app,
+    result = _run_cli(
         ["agent", "-m", "hello", "-c", str(config_path), "-w", str(workspace_path)],
     )
 
@@ -219,6 +248,3 @@ def test_agent_workspace_override_wins_over_config_workspace(mock_agent_runtime,
     assert mock_agent_runtime["config"].agents.defaults.workspace == str(workspace_path)
     assert mock_agent_runtime["sync_templates"].call_args.args == (workspace_path,)
     assert mock_agent_runtime["agent_loop_cls"].call_args.kwargs["workspace"] == workspace_path
-
-
-

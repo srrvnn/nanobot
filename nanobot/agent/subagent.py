@@ -6,7 +6,9 @@ import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from loguru import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from nanobot.agent.tools.registry import ToolRegistry
@@ -74,7 +76,7 @@ class SubagentManager:
 
         bg_task.add_done_callback(_cleanup)
 
-        logger.info("Spawned subagent [{}]: {}", task_id, display_label)
+        logger.info("Spawned subagent [%s]: %s", task_id, display_label)
         return f"Subagent [{display_label}] started (id: {task_id}). I'll notify you when it completes."
 
     async def _run_subagent(
@@ -84,7 +86,7 @@ class SubagentManager:
         label: str,
     ) -> None:
         """Execute the subagent task."""
-        logger.info("Subagent [{}] starting task: {}", task_id, label)
+        logger.info("Subagent [%s] starting task: %s", task_id, label)
 
         try:
             # Build subagent tools (no spawn tool to prevent recursion)
@@ -148,7 +150,7 @@ class SubagentManager:
                     # Execute tools
                     for tool_call in response.tool_calls:
                         args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
-                        logger.debug("Subagent [{}] executing: {} with arguments: {}", task_id, tool_call.name, args_str)
+                        logger.debug("Subagent [%s] executing: %s with arguments: %s", task_id, tool_call.name, args_str)
                         result = await tools.execute(tool_call.name, tool_call.arguments)
                         messages.append({
                             "role": "tool",
@@ -163,10 +165,10 @@ class SubagentManager:
             if final_result is None:
                 final_result = "Task completed but no final response was generated."
 
-            logger.info("Subagent [{}] completed: {}", task_id, (final_result or "")[:120])
+            logger.info("Subagent [%s] completed: %s", task_id, (final_result or "")[:120])
 
         except Exception as e:
-            logger.error("Subagent [{}] failed: {}", task_id, e)
+            logger.error("Subagent [%s] failed: %s", task_id, e)
     
     def _build_subagent_prompt(self) -> str:
         """Build a focused system prompt for the subagent."""

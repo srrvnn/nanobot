@@ -9,7 +9,9 @@ from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-from loguru import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 from nanobot.agent.context import ContextBuilder
 from nanobot.agent.subagent import SubagentManager
@@ -121,7 +123,7 @@ class AgentLoop:
             await connect_mcp_servers(self._mcp_servers, self.tools, self._mcp_stack)
             self._mcp_connected = True
         except Exception as e:
-            logger.error("Failed to connect MCP servers (will retry next message): {}", e)
+            logger.error("Failed to connect MCP servers (will retry next message): %s", e)
             if self._mcp_stack:
                 try:
                     await self._mcp_stack.aclose()
@@ -198,7 +200,7 @@ class AgentLoop:
                 for tool_call in response.tool_calls:
                     tools_used.append(tool_call.name)
                     args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
-                    logger.info("Tool call: {}({})", tool_call.name, args_str[:200])
+                    logger.info("Tool call: %s(%s)", tool_call.name, args_str[:200])
                     result = await self.tools.execute(tool_call.name, tool_call.arguments)
                     messages = self.context.add_tool_result(
                         messages, tool_call.id, tool_call.name, result
@@ -208,7 +210,7 @@ class AgentLoop:
                 # Don't persist error responses to session history — they can
                 # poison the context and cause permanent 400 loops (#1303).
                 if response.finish_reason == "error":
-                    logger.error("LLM returned error: {}", (clean or "")[:200])
+                    logger.error("LLM returned error: %s", (clean or "")[:200])
                     final_content = clean or "Sorry, I encountered an error calling the AI model."
                     break
                 messages = self.context.add_assistant_message(
@@ -218,7 +220,7 @@ class AgentLoop:
                 break
 
         if final_content is None and iteration >= self.max_iterations:
-            logger.warning("Max iterations ({}) reached", self.max_iterations)
+            logger.warning("Max iterations (%s) reached", self.max_iterations)
             final_content = (
                 f"I reached the maximum number of tool call iterations ({self.max_iterations}) "
                 "without completing the task. You can try breaking the task into smaller steps."
@@ -245,7 +247,7 @@ class AgentLoop:
         await self._connect_mcp()
 
         preview = content[:80] + "..." if len(content) > 80 else content
-        logger.info("Processing message: {}", preview)
+        logger.info("Processing message: %s", preview)
 
         session = self.sessions.get_or_create(session_key)
 
@@ -278,7 +280,7 @@ class AgentLoop:
         self.sessions.save(session)
 
         preview = final_content[:120] + "..." if len(final_content) > 120 else final_content
-        logger.info("Response: {}", preview)
+        logger.info("Response: %s", preview)
         return final_content
 
     def _save_turn(self, session: Session, messages: list[dict], skip: int) -> None:

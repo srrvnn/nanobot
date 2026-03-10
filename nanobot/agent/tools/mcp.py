@@ -5,7 +5,9 @@ from contextlib import AsyncExitStack
 from typing import Any
 
 import httpx
-from loguru import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 from nanobot.agent.tools.base import Tool
 from nanobot.agent.tools.registry import ToolRegistry
@@ -43,7 +45,7 @@ class MCPToolWrapper(Tool):
                 timeout=self._tool_timeout,
             )
         except asyncio.TimeoutError:
-            logger.warning("MCP tool '{}' timed out after {}s", self._name, self._tool_timeout)
+            logger.warning("MCP tool '%s' timed out after %ss", self._name, self._tool_timeout)
             return f"(MCP tool call timed out after {self._tool_timeout}s)"
         except asyncio.CancelledError:
             # MCP SDK's anyio cancel scopes can leak CancelledError on timeout/failure.
@@ -51,11 +53,11 @@ class MCPToolWrapper(Tool):
             task = asyncio.current_task()
             if task is not None and task.cancelling() > 0:
                 raise
-            logger.warning("MCP tool '{}' was cancelled by server/SDK", self._name)
+            logger.warning("MCP tool '%s' was cancelled by server/SDK", self._name)
             return "(MCP tool call was cancelled)"
         except Exception as exc:
             logger.exception(
-                "MCP tool '{}' failed: {}: {}",
+                "MCP tool '%s' failed: %s: %s",
                 self._name,
                 type(exc).__name__,
                 exc,
@@ -92,7 +94,7 @@ async def connect_mcp_servers(
                         "sse" if cfg.url.rstrip("/").endswith("/sse") else "streamableHttp"
                     )
                 else:
-                    logger.warning("MCP server '{}': no command or url configured, skipping", name)
+                    logger.warning("MCP server '%s': no command or url configured, skipping", name)
                     continue
 
             if transport_type == "stdio":
@@ -131,7 +133,7 @@ async def connect_mcp_servers(
                     streamable_http_client(cfg.url, http_client=http_client)
                 )
             else:
-                logger.warning("MCP server '{}': unknown transport type '{}'", name, transport_type)
+                logger.warning("MCP server '%s': unknown transport type '%s'", name, transport_type)
                 continue
 
             session = await stack.enter_async_context(ClientSession(read, write))
@@ -141,8 +143,8 @@ async def connect_mcp_servers(
             for tool_def in tools.tools:
                 wrapper = MCPToolWrapper(session, name, tool_def, tool_timeout=cfg.tool_timeout)
                 registry.register(wrapper)
-                logger.debug("MCP: registered tool '{}' from server '{}'", wrapper.name, name)
+                logger.debug("MCP: registered tool '%s' from server '%s'", wrapper.name, name)
 
-            logger.info("MCP server '{}': connected, {} tools registered", name, len(tools.tools))
+            logger.info("MCP server '%s': connected, %s tools registered", name, len(tools.tools))
         except Exception as e:
-            logger.error("MCP server '{}': failed to connect: {}", name, e)
+            logger.error("MCP server '%s': failed to connect: %s", name, e)
