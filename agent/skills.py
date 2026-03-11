@@ -20,7 +20,7 @@ class SkillsLoader:
 
     def __init__(self, workspace: Path, builtin_skills_dir: Path | None = None):
         self.workspace = workspace
-        self.workspace_skills = workspace / "skills"
+        self.workspace_skills = workspace.parent / "skills"
         self.builtin_skills = builtin_skills_dir or BUILTIN_SKILLS_DIR
 
     def list_skills(self, filter_unavailable: bool = True) -> list[dict[str, str]]:

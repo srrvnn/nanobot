@@ -90,7 +90,7 @@ def sync_workspace_templates(workspace: Path, silent: bool = False) -> list[str]
     for item in tpl.iterdir():
         if item.name.endswith(".md"):
             _write(item, workspace / item.name)
-    (workspace / "skills").mkdir(exist_ok=True)
+    (workspace.parent / "skills").mkdir(exist_ok=True)
 
     if added and not silent:
         from rich.console import Console

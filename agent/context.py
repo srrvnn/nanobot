@@ -76,7 +76,7 @@ You are CC, a helpful AI assistant.
 
 ## Workspace
 Your workspace is at: {workspace_path}
-- Custom skills: {workspace_path}/skills/{{skill-name}}/SKILL.md
+- Custom skills: {self.workspace.parent}/skills/{{skill-name}}/SKILL.md
 
 {platform_policy}
 
