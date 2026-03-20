@@ -11,27 +11,27 @@ from typing import Any, Awaitable, Callable, TYPE_CHECKING
 import weakref
 
 from loguru import logger
-from nanobot.agent.context import ContextBuilder
-from nanobot.agent.memory import MemoryStore
-from nanobot.agent.subagent import SubagentManager
-from nanobot.agent.tools.android_kernel import discover_kernel_tools
-from nanobot.agent.tools.cron import CronTool
-from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
-from nanobot.agent.tools.hex import HexEncodeTool
-from nanobot.agent.tools.message import MessageTool
-from nanobot.agent.tools.registry import ToolRegistry
-from nanobot.agent.tools.shell import ExecTool
-from nanobot.agent.tools.sleep import SleepTool
-from nanobot.agent.tools.spawn import SpawnTool
-from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
-from nanobot.bus.events import InboundMessage, OutboundMessage
-from nanobot.bus.queue import MessageBus
-from nanobot.providers.base import LLMProvider
-from nanobot.session.manager import Session, SessionManager
+from agent.context import ContextBuilder
+from agent.memory import MemoryStore
+from agent.subagent import SubagentManager
+from agent.tools.android_kernel import discover_kernel_tools
+from agent.tools.cron import CronTool
+from agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
+from agent.tools.hex import HexEncodeTool
+from agent.tools.message import MessageTool
+from agent.tools.registry import ToolRegistry
+from agent.tools.shell import ExecTool
+from agent.tools.sleep import SleepTool
+from agent.tools.spawn import SpawnTool
+from agent.tools.web import WebFetchTool, WebSearchTool
+from bus.events import InboundMessage, OutboundMessage
+from bus.queue import MessageBus
+from providers.base import LLMProvider
+from session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
-  from nanobot.config.schema import ChannelsConfig, ExecToolConfig
-  from nanobot.cron.service import CronService
+  from config.schema import ChannelsConfig, ExecToolConfig
+  from cron.service import CronService
 
 
 class AgentLoop:
@@ -67,7 +67,7 @@ class AgentLoop:
       mcp_servers: dict | None = None,
       channels_config: ChannelsConfig | None = None,
   ):
-    from nanobot.config.schema import ExecToolConfig
+    from config.schema import ExecToolConfig
 
     self.bus = bus
     self.channels_config = channels_config
@@ -157,7 +157,7 @@ class AgentLoop:
     if self._mcp_connected or self._mcp_connecting or not self._mcp_servers:
       return
     self._mcp_connecting = True
-    from nanobot.agent.tools.mcp import connect_mcp_servers
+    from agent.tools.mcp import connect_mcp_servers
 
     try:
       self._mcp_stack = AsyncExitStack()
@@ -185,7 +185,7 @@ class AgentLoop:
       user_request: str | None = None,
   ) -> None:
     """Update context for all tools that need routing info or metadata."""
-    from nanobot.agent.tools.android_kernel import AndroidKernelToolWrapper
+    from agent.tools.android_kernel import AndroidKernelToolWrapper
 
     for name in self.tools.tool_names:
       tool = self.tools.get(name)
@@ -287,7 +287,7 @@ class AgentLoop:
           logger.info("Tool call: {}({})", tool_call.name, args_str[:200])
 
           # Update rationale for Android Kernel tools if possible
-          from nanobot.agent.tools.android_kernel import AndroidKernelToolWrapper
+          from agent.tools.android_kernel import AndroidKernelToolWrapper
 
           tool = self.tools.get(tool_call.name)
           if isinstance(tool, AndroidKernelToolWrapper):
