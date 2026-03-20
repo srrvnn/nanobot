@@ -187,7 +187,7 @@ class AgentLoop:
                         "type": "function",
                         "function": {
                             "name": tc.name,
-                            "arguments": json.dumps(tc.arguments, ensure_ascii=False)
+                            "arguments": tc.arguments if isinstance(tc.arguments, str) else json.dumps(tc.arguments, ensure_ascii=False)
                         }
                     }
                     for tc in response.tool_calls
@@ -317,4 +317,3 @@ class AgentLoop:
             entry.setdefault("timestamp", datetime.now().isoformat())
             session.messages.append(entry)
         session.updated_at = datetime.now()
-
