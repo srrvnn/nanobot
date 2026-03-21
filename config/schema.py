@@ -17,7 +17,7 @@ class AgentDefaults(Base):
     """Default agent configuration."""
 
     workspace: str = "~/.nanobot/workspace"
-    model: str = "gemini/gemini-2.5-flash"
+    model: str = "gemini/gemini-3-flash-preview"
     provider: str = "gemini"
     max_tokens: int = 8192
     temperature: float = 0.1
