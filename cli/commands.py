@@ -258,11 +258,21 @@ def cmd_agent(args: argparse.Namespace) -> None:
         console.print(f"  [dim]↳ {content}[/dim]")
 
     if args.message:
-        # Single message mode
+        # Single message mode (Programmatic JSON Output)
+        json_traces = []
+
+        async def _json_progress(content: str, *, tool_hint: bool = False) -> None:
+            json_traces.append(content)
+
         async def run_once():
-            with _thinking_ctx():
-                response = await agent_loop.process_direct(args.message, args.session, on_progress=_cli_progress)
-            _print_agent_response(response, render_markdown=render_markdown)
+            response = await agent_loop.process_direct(args.message, args.session, on_progress=_json_progress)
+            
+            import json
+            print(json.dumps({
+                "response": response or "",
+                "trace": json_traces
+            }))
+            
             await agent_loop.close_mcp()
 
         asyncio.run(run_once())
