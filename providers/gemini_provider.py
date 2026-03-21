@@ -90,7 +90,12 @@ class GeminiProvider(LLMProvider):
                     
                     thought_sig = getattr(part, "thought_signature", None)
                     if thought_sig:
-                        call_id = f"{call_id}::{thought_sig}"
+                        import base64
+                        if isinstance(thought_sig, bytes):
+                            b64_sig = base64.b64encode(thought_sig).decode("utf-8")
+                        else:
+                            b64_sig = base64.b64encode(str(thought_sig).encode("utf-8")).decode("utf-8")
+                        call_id = f"{call_id}::{b64_sig}"
                         
                     args = tc.args if isinstance(tc.args, dict) else dict(tc.args)
                     tool_requests.append(ToolCallRequest(
@@ -207,7 +212,12 @@ class GeminiProvider(LLMProvider):
                     call_id = tc.get("id", "")
                     thought_sig = None
                     if "::" in call_id:
-                        call_id, thought_sig = call_id.split("::", 1)
+                        call_id, thought_sig_b64 = call_id.split("::", 1)
+                        import base64
+                        try:
+                            thought_sig = base64.b64decode(thought_sig_b64)
+                        except Exception:
+                            pass
                         
                     fc = types.FunctionCall(name=tc["function"]["name"], args=args, id=call_id)
                     part = types.Part(function_call=fc)
@@ -234,7 +244,8 @@ class GeminiProvider(LLMProvider):
                 resp = types.FunctionResponse(name=msg.get("name", "unknown"), response=result_data, id=tc_id)
                 # Function responses must be role="user" representing user feedback to a function call
                 genai_role = "user"
-                parts.append(types.Part(function_response=resp))
+                part = types.Part(function_response=resp)
+                parts.append(part)
                 contents.append(types.Content(role=genai_role, parts=parts))
                 continue
                 
