@@ -52,7 +52,7 @@ class GeminiProvider(LLMProvider):
         if resolved_model.startswith("gemini/"):
             resolved_model = resolved_model.split("/", 1)[1]
             
-        system_instruction, contents = self._translate_messages(messages)
+        system_instruction, contents = self._translate_messages(messages, tools)
         genai_tools = self._translate_tools(tools)
         
         config_kwargs: dict[str, Any] = {
@@ -194,9 +194,15 @@ class GeminiProvider(LLMProvider):
             return [types.Tool(function_declarations=declarations)]
         return None
 
-    def _translate_messages(self, messages: list[dict[str, Any]]) -> tuple[str | None, list[types.Content]]:
+    def _translate_messages(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> tuple[str | None, list[types.Content]]:
         system_instruction = None
         contents = []
+        
+        valid_tool_names = set()
+        if tools:
+            for t in tools:
+                if t.get("type") == "function":
+                    valid_tool_names.add(t["function"]["name"])
         
         for msg in messages:
             role = msg.get("role")
@@ -236,10 +242,15 @@ class GeminiProvider(LLMProvider):
                         except Exception:
                             pass
                         
-                    fc = types.FunctionCall(name=tc["function"]["name"], args=args, id=call_id)
-                    part = types.Part(function_call=fc)
-                    if thought_sig:
-                        part.thought_signature = thought_sig
+                    tc_name = tc["function"]["name"]
+                    if tc_name in valid_tool_names:
+                        fc = types.FunctionCall(name=tc_name, args=args, id=call_id)
+                        part = types.Part(function_call=fc)
+                        if thought_sig:
+                            part.thought_signature = thought_sig
+                    else:
+                        text = f"Action: Called tool '{tc_name}' with arguments: {json.dumps(args)}"
+                        part = types.Part.from_text(text=text)
                     parts.append(part)
                     
             # Handle "tool" result messages
@@ -258,10 +269,15 @@ class GeminiProvider(LLMProvider):
                 if not isinstance(result_data, dict):
                     result_data = {"result": result_data}
                     
-                resp = types.FunctionResponse(name=msg.get("name", "unknown"), response=result_data, id=tc_id)
-                # Function responses must be role="user" representing user feedback to a function call
+                tc_name = msg.get("name", "unknown")
                 genai_role = "user"
-                part = types.Part(function_response=resp)
+                if tc_name in valid_tool_names:
+                    resp = types.FunctionResponse(name=tc_name, response=result_data, id=tc_id)
+                    part = types.Part(function_response=resp)
+                else:
+                    text = f"Tool result for '{tc_name}': {json.dumps(result_data)}"
+                    part = types.Part.from_text(text=text)
+                
                 parts.append(part)
                 contents.append(types.Content(role=genai_role, parts=parts))
                 continue
