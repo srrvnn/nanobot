@@ -36,9 +36,15 @@ class LLMProvider(ABC):
     while maintaining a consistent interface.
     """
 
-    def __init__(self, api_key: str | None = None, api_base: str | None = None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        api_base: str | None = None,
+        retry_config: dict[str, Any] | None = None,
+    ):
         self.api_key = api_key
         self.api_base = api_base
+        self.retry_config = retry_config or {}
 
     @staticmethod
     def _sanitize_empty_content(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

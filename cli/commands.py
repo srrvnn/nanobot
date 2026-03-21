@@ -195,6 +195,7 @@ def _make_provider(config: Config):
     return GeminiProvider(
         api_key=p.api_key,
         api_base=config.get_api_base(model),
+        retry_config=config.agents.defaults.retry.model_dump(),
         default_model=model,
     )
 
