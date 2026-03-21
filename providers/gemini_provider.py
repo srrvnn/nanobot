@@ -19,10 +19,11 @@ class GeminiProvider(LLMProvider):
         self,
         api_key: str | None = None,
         api_base: str | None = None,
+        retry_config: dict[str, Any] | None = None,
         default_model: str = "gemini-3-flash-preview",
     ):
         """Initialize the Gemini Provider."""
-        super().__init__(api_key, api_base)
+        super().__init__(api_key, api_base, retry_config)
         self.default_model = default_model
         
         client_options = {}
@@ -71,12 +72,28 @@ class GeminiProvider(LLMProvider):
         
         logger.debug(f"Calling Gemini with {len(contents)} contents blocks; tools attached: {bool(genai_tools)}")
 
+        import tenacity
+        from google.genai.errors import APIError
+
+        def _is_retryable(e: Exception) -> bool:
+            return isinstance(e, APIError) and getattr(e, "code", getattr(e, "status_code", 0)) in (429, 503)
+
         try:
-            response = await self.client.aio.models.generate_content(
-                model=resolved_model,
-                contents=contents,
-                config=config,
-            )
+            async for attempt in tenacity.AsyncRetrying(
+                wait=tenacity.wait_exponential(
+                    multiplier=self.retry_config.get("base_delay", 2),
+                    max=self.retry_config.get("max_delay", 15)
+                ),
+                stop=tenacity.stop_after_attempt(self.retry_config.get("max_retries", 3)),
+                retry=tenacity.retry_if_exception(_is_retryable),
+                reraise=True,
+            ):
+                with attempt:
+                    response = await self.client.aio.models.generate_content(
+                        model=resolved_model,
+                        contents=contents,
+                        config=config,
+                    )
         except Exception as e:
             logger.error(f"Gemini API Error: {e}")
             return LLMResponse(content=f"Error: {e}", finish_reason="error")
