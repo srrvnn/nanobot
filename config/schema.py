@@ -13,16 +13,25 @@ class Base(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
+class RetryConfig(Base):
+    """Configuration for exponential backoff retries on rate limits (429/503)."""
+
+    max_retries: int = 3
+    base_delay: int = 2
+    max_delay: int = 15
+
+
 class AgentDefaults(Base):
     """Default agent configuration."""
 
     workspace: str = "~/.nanobot/workspace"
-    model: str = "gemini/gemini-2.5-flash-preview"
+    model: str = "gemini/gemini-3-flash-preview"
     provider: str = "gemini"
     max_tokens: int = 8192
     temperature: float = 0.1
     max_tool_iterations: int = 40
     reasoning_effort: str | None = None  # low / medium / high — enables LLM thinking mode
+    retry: RetryConfig = Field(default_factory=RetryConfig)
 
 
 class AgentsConfig(Base):

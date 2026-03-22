@@ -182,7 +182,7 @@ def cmd_onboard(args: argparse.Namespace) -> None:
 
 def _make_provider(config: Config):
     """Create the Gemini LLM provider from config."""
-    from providers.litellm_provider import LiteLLMProvider
+    from providers.gemini_provider import GeminiProvider
 
     model = config.agents.defaults.model
     p = config.get_provider(model)
@@ -192,12 +192,11 @@ def _make_provider(config: Config):
         console.print("Set one in ~/.nanobot/config.json under providers.gemini")
         sys.exit(1)
 
-    return LiteLLMProvider(
+    return GeminiProvider(
         api_key=p.api_key,
         api_base=config.get_api_base(model),
+        retry_config=config.agents.defaults.retry.model_dump(),
         default_model=model,
-        extra_headers=p.extra_headers,
-        provider_name="gemini",
     )
 
 

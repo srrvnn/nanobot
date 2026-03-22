@@ -1,6 +1,6 @@
 """LLM providers."""
 
 from providers.base import LLMProvider, LLMResponse
-from providers.litellm_provider import LiteLLMProvider
+from providers.gemini_provider import GeminiProvider
 
-__all__ = ["LLMProvider", "LLMResponse", "LiteLLMProvider"]
+__all__ = ["LLMProvider", "LLMResponse", "GeminiProvider"]
