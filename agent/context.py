@@ -30,6 +30,14 @@ class ContextBuilder:
         if bootstrap:
             parts.append(bootstrap)
 
+        custom_facts_file = self.workspace / "memory" / "USER_FACTS_AND_PREFERENCES.md"
+        if custom_facts_file.exists():
+            parts.append(f"# User Facts & Preferences\n\n{custom_facts_file.read_text(encoding='utf-8')}")
+
+        custom_details_file = self.workspace / "memory" / "KEY_CONVERSATION_DETAILS.md"
+        if custom_details_file.exists():
+            parts.append(f"# Key Conversation Details (Inferred from previous agent responses, use with caution)\n\n{custom_details_file.read_text(encoding='utf-8')}")
+
 
         always_skills = self.skills.get_always_skills()
         if always_skills:
