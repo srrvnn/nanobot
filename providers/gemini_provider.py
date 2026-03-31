@@ -260,11 +260,6 @@ class GeminiProvider(LLMProvider):
                 if "::" in tc_id:
                     tc_id, _ = tc_id.split("::", 1)
 
-                if isinstance(result_data, str):
-                    try:
-                        result_data = json.loads(result_data)
-                    except json.JSONDecodeError:
-                        pass
                 
                 if not isinstance(result_data, dict):
                     result_data = {"result": result_data}
